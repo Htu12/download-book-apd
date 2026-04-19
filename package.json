@@ -1,0 +1,26 @@
+{
+  "name": "download-book-apd",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./src/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ./dist/server.js",
+    "dev": "nodemon ./src/server.js",
+    "build": "esbuild ./src/server.js --bundle --platform=node --format=esm --outfile=dist/server.js --external:express --external:mongodb --external:axios --external:dotenv --external:node:fs --external:node:path --external:node:https --external:node:url --external:node:os --external:node:events --external:node:constants"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "axios": "^1.15.0",
+    "express": "^5.2.1",
+    "mongodb": "^6.21.0"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "esbuild": "^0.28.0",
+    "nodemon": "^3.1.14"
+  }
+}

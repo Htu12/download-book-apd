@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Thư viện sách</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="topbar">
+      </header>
+
+      <section class="card controls">
+        <div class="search-row">
+          <input id="searchInput" type="text" placeholder="Nhập tên sách..." autocomplete="off" />
+          <button id="searchBtn" type="button">Tìm</button>
+        </div>
+
+        <div class="meta-row">
+          <span id="summaryText">Chưa tìm kiếm</span>
+        </div>
+      </section>
+
+      <section id="resultSection" class="card table-card hidden">
+        <div id="alertBox" class="alert hidden"></div>
+
+        <div id="statusBox" class="status-box hidden"></div>
+
+        <div id="resultTableWrap" class="table-wrap fixed-height hidden">
+          <table>
+            <thead>
+              <tr>
+                <th>Doc ID</th>
+                <th>Tên sách</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+
+        <div id="pagination" class="pagination hidden">
+          <button id="prevPageBtn" type="button" class="page-btn">Trang trước</button>
+
+          <div class="page-center">
+            <span id="pageInfo">Trang 1 / 1</span>
+          </div>
+
+          <button id="nextPageBtn" type="button" class="page-btn">Trang sau</button>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
