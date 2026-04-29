@@ -4,10 +4,10 @@
   "description": "",
   "main": "./src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node test/run.js",
     "start": "node ./dist/server.js",
     "dev": "nodemon ./src/server.js",
-    "build": "esbuild ./src/server.js --bundle --platform=node --format=esm --outfile=dist/server.js --external:express --external:mongodb --external:axios --external:dotenv --external:node:fs --external:node:path --external:node:https --external:node:url --external:node:os --external:node:events --external:node:constants"
+    "build": "esbuild ./src/server.js --bundle --platform=node --format=esm --outfile=dist/server.js --external:express --external:mongodb --external:axios --external:dotenv --external:jsonwebtoken --external:node:fs --external:node:path --external:node:https --external:node:url --external:node:os --external:node:events --external:node:constants"
   },
   "keywords": [],
   "author": "",
@@ -15,11 +15,12 @@
   "type": "module",
   "dependencies": {
     "axios": "^1.15.0",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "mongodb": "^6.21.0"
   },
   "devDependencies": {
-    "dotenv": "^17.4.2",
     "esbuild": "^0.28.0",
     "nodemon": "^3.1.14"
   }

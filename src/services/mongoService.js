@@ -1,92 +1,167 @@
 import { MongoClient } from "mongodb";
+
 import config from "../configs/index.js";
 
-const client = new MongoClient(config.mongoUri);
-const DB = client.db(config.dbName);
+const DEFAULT_LIMIT = 50;
 
-/** @type {import("mongodb").Collection} */
-export const booksCol = DB.collection("books");
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
-// ── Indexes ────────────────────────────────────────────────────────────────
-await booksCol.createIndex({ docId: 1 }, { unique: true });
-await booksCol.createIndex({ bookName: 1 });
-await booksCol.createIndex({ bookName: "text", fileName: "text" }, { weights: { bookName: 10, fileName: 5 } });
+function normalizeSearchWords(query) {
+  return String(query)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "d")
+    .replace(/[^a-z0-9\s]/gi, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
 
-// ── CRUD ───────────────────────────────────────────────────────────────────
-export const mongoService = {
-  /** Tìm kiếm sách bằng full-text search của MongoDB */
-  async search(query) {
-    if (!query?.trim()) return [];
+function mergeByDocId(...groups) {
+  const seen = new Set();
+  const merged = [];
 
-    const words = query
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[đĐ]/g, "d")
-      .replace(/[^a-z0-9\s]/g, " ")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
+  for (const group of groups) {
+    for (const book of group) {
+      const docId = String(book.docId || "");
+      if (!docId || seen.has(docId)) continue;
 
-    if (!words.length) return [];
+      seen.add(docId);
+      merged.push(book);
+    }
+  }
 
-    // Tìm chính xác theo regex (ưu tiên cao nhất)
-    const exact = await booksCol
-      .find({ docId: { $exists: true } })
-      .map((b) => ({ ...b, _exact: b.bookName?.toLowerCase().includes(query.toLowerCase()) }))
-      .toArray();
+  return merged;
+}
 
-    const exactMatch = exact.filter((b) => b._exact);
+export function createMongoService({
+  mongoUri = config.mongoUri,
+  dbName = config.dbName,
+  collectionName = "books",
+} = {}) {
+  const client = new MongoClient(mongoUri);
+  const db = client.db(dbName);
+  const booksCol = db.collection(collectionName);
 
-    // Word search
-    const wordFilter = {
-      $and: words.map((w) => ({
-        $or: [{ bookName: { $regex: w, $options: "i" } }, { fileName: { $regex: w, $options: "i" } }],
-      })),
-    };
+  let connectPromise = null;
 
-    const cursor = booksCol.find(wordFilter).sort({ bookName: 1 }).limit(50);
-    const results = await cursor.toArray();
+  async function ensureConnected() {
+    if (!connectPromise) {
+      connectPromise = (async () => {
+        await client.connect();
+        await booksCol.createIndex({ docId: 1 }, { unique: true });
+        await booksCol.createIndex({ bookName: 1 });
+        await booksCol.createIndex({ bookName: "text", fileName: "text" }, { weights: { bookName: 10, fileName: 5 } });
+      })().catch((error) => {
+        connectPromise = null;
+        throw error;
+      });
+    }
 
-    // Merge: exact match lên đầu, loại trùng docId
-    const seen = new Set(exactMatch.map((b) => b.docId));
-    const rest = results.filter((b) => !seen.has(b.docId));
+    return connectPromise;
+  }
 
-    return [...exactMatch, ...rest].map(({ _exact, ...b }) => b);
-  },
+  return {
+    booksCol,
 
-  /** Tìm 1 sách theo docId */
-  async findByDocId(docId) {
-    return booksCol.findOne({ docId: String(docId).trim() });
-  },
+    async connect() {
+      await ensureConnected();
+    },
 
-  /** Tìm hoặc throw */
-  async getOrThrow(docId) {
-    const book = await this.findByDocId(docId);
-    if (!book) throw new Error(`Không tìm thấy sách với docId=${docId}`);
-    if (!book.hash) throw new Error(`Sách docId=${docId} không có hash`);
-    return book;
-  },
+    async close() {
+      await client.close();
+      connectPromise = null;
+    },
 
-  /** Insert 1 sách, ignore nếu trùng docId */
-  async upsertOne(book) {
-    return booksCol.updateOne({ docId: book.docId }, { $set: { ...book, updatedAt: new Date() } }, { upsert: true });
-  },
+    async search(query) {
+      await ensureConnected();
 
-  /** Insert nhiều sách (bulk upsert) */
-  async upsertMany(books) {
-    if (!books?.length) return;
-    const ops = books.map((b) => ({
-      updateOne: {
-        filter: { docId: b.docId },
-        update: { $set: { ...b, updatedAt: new Date() } },
-        upsert: true,
-      },
-    }));
-    return booksCol.bulkWrite(ops, { ordered: false });
-  },
+      const trimmedQuery = String(query || "").trim();
+      if (!trimmedQuery) return [];
 
-  /** Đếm tổng số sách */
-  async count() {
-    return booksCol.countDocuments();
-  },
-};
+      const exactRegex = new RegExp(escapeRegex(trimmedQuery), "i");
+      const exactMatch = await booksCol.find({ bookName: exactRegex }).sort({ bookName: 1 }).limit(DEFAULT_LIMIT).toArray();
+
+      let textResults = [];
+      try {
+        textResults = await booksCol
+          .find(
+            { $text: { $search: trimmedQuery } },
+            { projection: { score: { $meta: "textScore" }, docId: 1, bookName: 1, fileName: 1 } },
+          )
+          .sort({ score: { $meta: "textScore" }, bookName: 1 })
+          .limit(DEFAULT_LIMIT)
+          .toArray();
+      } catch (error) {
+        console.warn("[MONGO_TEXT_SEARCH_FAILED]", error.message);
+      }
+
+      const words = normalizeSearchWords(trimmedQuery);
+      const wordResults = words.length
+        ? await booksCol
+            .find({
+              $and: words.map((word) => ({
+                $or: [{ bookName: { $regex: escapeRegex(word), $options: "i" } }, { fileName: { $regex: escapeRegex(word), $options: "i" } }],
+              })),
+            })
+            .sort({ bookName: 1 })
+            .limit(DEFAULT_LIMIT)
+            .toArray()
+        : [];
+
+      return mergeByDocId(exactMatch, textResults, wordResults).slice(0, DEFAULT_LIMIT);
+    },
+
+    async findByDocId(docId) {
+      await ensureConnected();
+      return booksCol.findOne({ docId: String(docId).trim() });
+    },
+
+    async getOrThrow(docId) {
+      const book = await this.findByDocId(docId);
+      if (!book) {
+        const error = new Error(`Book not found for docId=${docId}`);
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (!book.hash) {
+        const error = new Error(`Book docId=${docId} does not have hash`);
+        error.statusCode = 422;
+        throw error;
+      }
+
+      return book;
+    },
+
+    async upsertOne(book) {
+      await ensureConnected();
+      return booksCol.updateOne({ docId: book.docId }, { $set: { ...book, updatedAt: new Date() } }, { upsert: true });
+    },
+
+    async upsertMany(books) {
+      await ensureConnected();
+
+      if (!books?.length) return null;
+
+      const ops = books.map((book) => ({
+        updateOne: {
+          filter: { docId: book.docId },
+          update: { $set: { ...book, updatedAt: new Date() } },
+          upsert: true,
+        },
+      }));
+
+      return booksCol.bulkWrite(ops, { ordered: false });
+    },
+
+    async count() {
+      await ensureConnected();
+      return booksCol.countDocuments();
+    },
+  };
+}
+
+export const mongoService = createMongoService();

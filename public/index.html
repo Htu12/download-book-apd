@@ -7,49 +7,55 @@
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <div class="container">
-      <header class="topbar">
+    <div class="app-layout">
+      <header class="app-header">
+        <div class="header-inner">
+          <h1 class="app-title">Thư viện sách</h1>
+          <button id="logoutBtn" type="button" class="btn btn-outline btn-sm">Đăng xuất</button>
+        </div>
       </header>
 
-      <section class="card controls">
-        <div class="search-row">
-          <input id="searchInput" type="text" placeholder="Nhập tên sách..." autocomplete="off" />
-          <button id="searchBtn" type="button">Tìm</button>
-        </div>
+      <main class="app-main">
+        <section class="search-card">
+          <div class="search-row">
+            <input
+              id="searchInput"
+              type="text"
+              class="input"
+              placeholder="Nhập tên sách để tìm kiếm..."
+              autocomplete="off"
+            />
+            <button id="searchBtn" type="button" class="btn btn-primary">Tìm kiếm</button>
+          </div>
+          <div class="search-meta">
+            <span id="summaryText">Nhập từ khóa để bắt đầu tìm kiếm</span>
+          </div>
+        </section>
 
-        <div class="meta-row">
-          <span id="summaryText">Chưa tìm kiếm</span>
-        </div>
-      </section>
-
-      <section id="resultSection" class="card table-card hidden">
         <div id="alertBox" class="alert hidden"></div>
 
-        <div id="statusBox" class="status-box hidden"></div>
+        <section id="resultSection" class="result-card hidden">
+          <div id="statusBox" class="status-box hidden"></div>
 
-        <div id="resultTableWrap" class="table-wrap fixed-height hidden">
-          <table>
-            <thead>
-              <tr>
-                <th>Doc ID</th>
-                <th>Tên sách</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody id="resultBody"></tbody>
-          </table>
-        </div>
-
-        <div id="pagination" class="pagination hidden">
-          <button id="prevPageBtn" type="button" class="page-btn">Trang trước</button>
-
-          <div class="page-center">
-            <span id="pageInfo">Trang 1 / 1</span>
+          <div id="resultTableWrap" class="table-wrap hidden">
+            <table>
+              <thead>
+                <tr>
+                  <th class="col-name">Tên sách</th>
+                  <th class="col-action">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="resultBody"></tbody>
+            </table>
           </div>
 
-          <button id="nextPageBtn" type="button" class="page-btn">Trang sau</button>
-        </div>
-      </section>
+          <div id="pagination" class="pagination hidden">
+            <button id="prevPageBtn" type="button" class="btn btn-outline btn-sm">Trang trước</button>
+            <span id="pageInfo" class="page-info">Trang 1 / 1</span>
+            <button id="nextPageBtn" type="button" class="btn btn-outline btn-sm">Trang sau</button>
+          </div>
+        </section>
+      </main>
     </div>
 
     <script type="module" src="/app.js"></script>

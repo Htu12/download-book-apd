@@ -1,27 +1,20 @@
-import dotenv from "dotenv";
+export const DEFAULT_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
 
-dotenv.config();
-
-export const HOST = process.env.HOST;
-export const PORT = process.env.PORT;
-
-export const MONGO_URI = process.env.MONGO_URI;
-export const DB_NAME = process.env.DB_NAME;
-
-//Url
-export const URL1 = process.env.URL1;
-export const URL2 = process.env.URL2;
-export const URL3 = process.env.URL3;
-
-//School
-export const SCHOOL = process.env.SCHOOL;
-
-export const DEFAULT_HEADERS = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-  "Referer": `${process.env.REFERER}`,
-};
-
-export const BASE64_SANITIZE_REGEX = process.env.REGEX;
+export const REQUIRED_ENV_KEYS = [
+  "HOST",
+  "PORT",
+  "MONGO_URI",
+  "DB_NAME",
+  "REFERER",
+  "URL1",
+  "URL2",
+  "URL3",
+  "SCHOOL",
+  "REGEX",
+  "AUTH_PASSWORD",
+  "AUTH_SECRET",
+];
 
 export const FILE_TYPE = {
   pdf: {
@@ -52,6 +45,12 @@ export const FILE_TYPE = {
     ext: "doc",
     mime: "application/msword",
   },
-  xls: { ext: "xls", mime: "application/vnd.ms-excel" },
-  ppt: { ext: "ppt", mime: "application/vnd.ms-powerpoint" },
+  xls: {
+    ext: "xls",
+    mime: "application/vnd.ms-excel",
+  },
+  ppt: {
+    ext: "ppt",
+    mime: "application/vnd.ms-powerpoint",
+  },
 };

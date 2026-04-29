@@ -1,3 +1,37 @@
+const TOKEN_KEY = "auth_token";
+
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || "";
+}
+
+function removeToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+function redirectToLogin() {
+  removeToken();
+  window.location.replace("/login.html");
+}
+
+if (!getToken()) {
+  redirectToLogin();
+}
+
+function authHeaders() {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function handleUnauthorized(response) {
+  if (response.status === 401) {
+    redirectToLogin();
+    return true;
+  }
+  return false;
+}
+
+// DOM
+const logoutBtn = document.getElementById("logoutBtn");
 const searchInput = document.getElementById("searchInput");
 const searchBtn = document.getElementById("searchBtn");
 const summaryText = document.getElementById("summaryText");
@@ -6,7 +40,6 @@ const resultTableWrap = document.getElementById("resultTableWrap");
 const resultBody = document.getElementById("resultBody");
 const statusBox = document.getElementById("statusBox");
 const alertBox = document.getElementById("alertBox");
-
 const pagination = document.getElementById("pagination");
 const prevPageBtn = document.getElementById("prevPageBtn");
 const nextPageBtn = document.getElementById("nextPageBtn");
@@ -25,58 +58,13 @@ const state = {
 let debounceTimer = null;
 let alertTimer = null;
 
-function addClassIfNotExists(el, className) {
-  if (el && !el.classList.contains(className)) {
-    el.classList.add(className);
-  }
-}
-
-function removeClassIfExists(el, className) {
-  if (el && el.classList.contains(className)) {
-    el.classList.remove(className);
-  }
-}
-
+// Helpers
 function showElement(el) {
-  removeClassIfExists(el, "hidden");
+  el?.classList.remove("hidden");
 }
 
 function hideElement(el) {
-  addClassIfNotExists(el, "hidden");
-}
-
-function showResultSection() {
-  showElement(resultSection);
-}
-
-function hideResultSection() {
-  hideElement(resultSection);
-}
-
-function showResultTable() {
-  showElement(resultTableWrap);
-}
-
-function hideResultTable() {
-  hideElement(resultTableWrap);
-}
-
-function showStatusBox(message = "") {
-  statusBox.textContent = message;
-  showElement(statusBox);
-}
-
-function hideStatusBox() {
-  statusBox.textContent = "";
-  hideElement(statusBox);
-}
-
-function showPagination() {
-  showElement(pagination);
-}
-
-function hidePagination() {
-  hideElement(pagination);
+  el?.classList.add("hidden");
 }
 
 function showAlert(message) {
@@ -85,9 +73,7 @@ function showAlert(message) {
   showElement(alertBox);
 
   clearTimeout(alertTimer);
-  alertTimer = setTimeout(() => {
-    hideAlert();
-  }, 2500);
+  alertTimer = setTimeout(() => hideAlert(), 2500);
 }
 
 function hideAlert() {
@@ -109,22 +95,16 @@ function getTotalPages() {
 
 function clampCurrentPage() {
   const totalPages = getTotalPages();
-
-  if (state.currentPage < 1) {
-    state.currentPage = 1;
-  }
-
-  if (state.currentPage > totalPages) {
-    state.currentPage = totalPages;
-  }
+  if (state.currentPage < 1) state.currentPage = 1;
+  if (state.currentPage > totalPages) state.currentPage = totalPages;
 }
 
 function getPageItems(page) {
   const start = (page - 1) * PAGE_SIZE;
-  const end = start + PAGE_SIZE;
-  return state.allResults.slice(start, end);
+  return state.allResults.slice(start, start + PAGE_SIZE);
 }
 
+// Render
 function buildPlaceholderRows(count) {
   return Array.from({ length: count })
     .map(
@@ -132,35 +112,10 @@ function buildPlaceholderRows(count) {
         <tr class="placeholder-row" aria-hidden="true">
           <td>&nbsp;</td>
           <td>&nbsp;</td>
-          <td>
-            <div class="actions">
-              <button class="action-btn" type="button" tabindex="-1">Tải</button>
-            </div>
-          </td>
         </tr>
       `,
     )
     .join("");
-}
-
-function clearResults() {
-  resultBody.innerHTML = "";
-}
-
-function updatePagination() {
-  if (state.allResults.length <= PAGE_SIZE) {
-    hidePagination();
-    return;
-  }
-
-  clampCurrentPage();
-
-  const totalPages = getTotalPages();
-  pageInfo.textContent = `Trang ${state.currentPage} / ${totalPages}`;
-  prevPageBtn.disabled = state.currentPage <= 1;
-  nextPageBtn.disabled = state.currentPage >= totalPages;
-
-  showPagination();
 }
 
 function renderRows(items) {
@@ -168,15 +123,10 @@ function renderRows(items) {
     .map(
       (item) => `
         <tr>
-          <td title="${escapeHtml(item.docId)}">${escapeHtml(item.docId)}</td>
           <td title="${escapeHtml(item.bookName)}">${escapeHtml(item.bookName)}</td>
           <td>
             <div class="actions">
-              <button
-                class="action-btn"
-                type="button"
-                data-doc-id="${escapeHtml(item.docId)}"
-              >
+              <button class="btn btn-outline btn-sm" type="button" data-doc-id="${escapeHtml(item.docId)}">
                 Tải
               </button>
             </div>
@@ -190,9 +140,22 @@ function renderRows(items) {
   resultBody.innerHTML = rowsHtml + buildPlaceholderRows(placeholderCount);
 }
 
+function updatePagination() {
+  if (state.allResults.length <= PAGE_SIZE) {
+    hideElement(pagination);
+    return;
+  }
+
+  clampCurrentPage();
+  const totalPages = getTotalPages();
+  pageInfo.textContent = `Trang ${state.currentPage} / ${totalPages}`;
+  prevPageBtn.disabled = state.currentPage <= 1;
+  nextPageBtn.disabled = state.currentPage >= totalPages;
+  showElement(pagination);
+}
+
 function renderCurrentPage() {
   clampCurrentPage();
-
   const pageItems = getPageItems(state.currentPage);
 
   if (!pageItems.length) {
@@ -205,54 +168,52 @@ function renderCurrentPage() {
 }
 
 function renderStateIdle() {
-  summaryText.textContent = "Chưa tìm kiếm";
+  summaryText.textContent = "Nhập từ khóa để bắt đầu tìm kiếm";
   hideAlert();
-  hideStatusBox();
-  hidePagination();
-  hideResultTable();
-  hideResultSection();
-  clearResults();
+  hideElement(statusBox);
+  hideElement(pagination);
+  hideElement(resultTableWrap);
+  hideElement(resultSection);
+  resultBody.innerHTML = "";
 }
 
 function renderStateLoading() {
   summaryText.textContent = "Đang tìm kiếm...";
-  showResultSection();
   hideAlert();
-  hidePagination();
-  hideResultTable();
-  clearResults();
-  hideResultSection();
+  hideElement(pagination);
+  hideElement(resultTableWrap);
+  hideElement(resultSection);
+  resultBody.innerHTML = "";
 }
 
 function renderStateNotFound() {
   summaryText.textContent = "Không tìm thấy kết quả";
-  showResultSection();
   hideAlert();
-  hidePagination();
-  hideResultTable();
-  clearResults();
-  hideResultSection();
+  hideElement(pagination);
+  hideElement(resultTableWrap);
+  hideElement(resultSection);
+  resultBody.innerHTML = "";
 }
 
-function renderStateError(message) {
+function renderStateError() {
   summaryText.textContent = "Có lỗi khi tìm kiếm";
-  showResultSection();
   hideAlert();
-  hidePagination();
-  hideResultTable();
-  clearResults();
-  hideResultSection();
+  hideElement(pagination);
+  hideElement(resultTableWrap);
+  hideElement(resultSection);
+  resultBody.innerHTML = "";
 }
 
-function renderStateSuccess(resultsCountText) {
-  summaryText.textContent = resultsCountText;
-  showResultSection();
+function renderStateSuccess(text) {
+  summaryText.textContent = text;
+  showElement(resultSection);
   hideAlert();
-  hideStatusBox();
-  showResultTable();
+  hideElement(statusBox);
+  showElement(resultTableWrap);
   renderCurrentPage();
 }
 
+// State
 function resetSearchState() {
   state.allResults = [];
   state.currentPage = 1;
@@ -280,16 +241,16 @@ function setSearchResults(results, total) {
     return;
   }
 
-  const safeTotal = Number(total || state.allResults.length);
-  renderStateSuccess(`Tìm thấy ${safeTotal} kết quả`);
+  renderStateSuccess(`Tìm thấy ${Number(total || state.allResults.length)} kết quả`);
 }
 
-function setSearchError(message) {
+function setSearchError() {
   state.allResults = [];
   state.currentPage = 1;
-  renderStateError(message);
+  renderStateError();
 }
 
+// Search
 async function searchBooks() {
   const q = searchInput.value.trim();
 
@@ -304,21 +265,21 @@ async function searchBooks() {
 
   const controller = new AbortController();
   state.searchAbortController = controller;
-
   const requestId = ++state.latestSearchRequestId;
+
   searchBtn.disabled = true;
   renderStateLoading();
 
   try {
     const response = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
       signal: controller.signal,
+      headers: authHeaders(),
     });
 
-    const data = await response.json();
+    if (handleUnauthorized(response)) return;
 
-    if (requestId !== state.latestSearchRequestId) {
-      return;
-    }
+    const data = await response.json();
+    if (requestId !== state.latestSearchRequestId) return;
 
     if (!response.ok || !data.success) {
       throw new Error(data.error || "Tìm kiếm thất bại");
@@ -326,14 +287,8 @@ async function searchBooks() {
 
     setSearchResults(data.results, data.total);
   } catch (error) {
-    if (error.name === "AbortError") {
-      return;
-    }
-
-    if (requestId !== state.latestSearchRequestId) {
-      return;
-    }
-
+    if (error.name === "AbortError") return;
+    if (requestId !== state.latestSearchRequestId) return;
     setSearchError(error.message || "Tìm kiếm thất bại");
   } finally {
     if (requestId === state.latestSearchRequestId) {
@@ -343,18 +298,16 @@ async function searchBooks() {
   }
 }
 
+// Download
 function getFileNameFromResponse(response, docId) {
   let fileName = `download_${docId}`;
-  const contentDisposition = response.headers.get("Content-Disposition") || "";
+  const cd = response.headers.get("Content-Disposition") || "";
 
-  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-  const asciiMatch = contentDisposition.match(/filename="([^"]+)"/i);
+  const utf8Match = cd.match(/filename\*=UTF-8''([^;]+)/i);
+  const asciiMatch = cd.match(/filename="([^"]+)"/i);
 
-  if (utf8Match) {
-    fileName = decodeURIComponent(utf8Match[1]);
-  } else if (asciiMatch) {
-    fileName = asciiMatch[1];
-  }
+  if (utf8Match) fileName = decodeURIComponent(utf8Match[1]);
+  else if (asciiMatch) fileName = asciiMatch[1];
 
   return fileName;
 }
@@ -362,16 +315,12 @@ function getFileNameFromResponse(response, docId) {
 function triggerBrowserDownload(blob, fileName) {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
-
   link.href = url;
   link.download = fileName;
   document.body.appendChild(link);
   link.click();
   link.remove();
-
-  setTimeout(() => {
-    window.URL.revokeObjectURL(url);
-  }, 1000);
+  setTimeout(() => window.URL.revokeObjectURL(url), 1000);
 }
 
 async function downloadBook(docId, btn) {
@@ -385,24 +334,23 @@ async function downloadBook(docId, btn) {
       btn.textContent = "Đang tải...";
     }
 
-    const response = await fetch(`/api/download?d=${encodeURIComponent(docId)}`);
+    const response = await fetch(`/api/download?d=${encodeURIComponent(docId)}`, {
+      headers: authHeaders(),
+    });
+
+    if (handleUnauthorized(response)) return;
 
     if (!response.ok) {
       let errorMessage = "Tải file thất bại";
-
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorMessage;
-      } catch {
-        // bỏ qua
-      }
-
+      } catch {}
       throw new Error(errorMessage);
     }
 
     const blob = await response.blob();
     const fileName = getFileNameFromResponse(response, docId);
-
     triggerBrowserDownload(blob, fileName);
 
     if (btn) {
@@ -426,6 +374,12 @@ async function downloadBook(docId, btn) {
     showAlert(error.message || "Không tải được file");
   }
 }
+
+// Events
+logoutBtn.addEventListener("click", () => {
+  removeToken();
+  window.location.replace("/login.html");
+});
 
 prevPageBtn.addEventListener("click", () => {
   if (state.currentPage > 1) {
@@ -462,7 +416,6 @@ searchInput.addEventListener("keydown", (event) => {
 
 searchInput.addEventListener("input", () => {
   const value = searchInput.value.trim();
-
   clearTimeout(debounceTimer);
 
   if (!value) {
@@ -470,17 +423,14 @@ searchInput.addEventListener("input", () => {
     return;
   }
 
-  debounceTimer = setTimeout(() => {
-    searchBooks();
-  }, SEARCH_DEBOUNCE_MS);
+  debounceTimer = setTimeout(() => searchBooks(), SEARCH_DEBOUNCE_MS);
 });
 
 resultBody.addEventListener("click", (event) => {
-  const button = event.target.closest(".action-btn[data-doc-id]");
+  const button = event.target.closest(".btn[data-doc-id]");
   if (!button) return;
-
-  const { docId } = button.dataset;
-  downloadBook(docId, button);
+  downloadBook(button.dataset.docId, button);
 });
 
+// Init
 resetEmptyState();
